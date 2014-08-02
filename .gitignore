@@ -1,0 +1,67 @@
+# -----------------------------------------------------------------------------
+# Adapted from github.com/github/gitignore C++
+# -----------------------------------------------------------------------------
+
+# Compiled Object Files
+*.obj
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic Libraries
+*.so
+*.so.*
+*.dll
+*.dylib
+
+# Compiled Static Libraries
+*.lib
+*.lai
+*.la
+*.a
+
+# Compiled Debug Symbols
+*.pdb
+
+# Executables
+*.exe*
+*.out
+*.app
+
+# -----------------------------------------------------------------------------
+# Adapted from github.com/github/gitignore Visual Studio
+# -----------------------------------------------------------------------------
+
+# User-Specific Files
+*.suo
+*.user
+*.sln.docstates
+
+# Cache Files
+ipch/
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+
+# Build Results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+x64/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# -----------------------------------------------------------------------------
+# Adapted from github.com/github/gitignore CMake
+# -----------------------------------------------------------------------------
+
+# CMake
+Makefile*
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
