@@ -32,7 +32,7 @@ function(get_processor_count OUTPUT_PROCESSOR_COUNT)
 	elseif(WIN32)
 		set(PROCESSOR_COUNT "$ENV{NUMBER_OF_PROCESSORS}")
 	endif()
-  message(STATUS "Exactly ${PROCESSOR_COUNT} thread(s) are available for the build process")
+  message(STATUS "Available Thread(s): ${PROCESSOR_COUNT}")
 	set(${OUTPUT_PROCESSOR_COUNT} "${PROCESSOR_COUNT}" PARENT_SCOPE)
 endfunction()
 
@@ -60,7 +60,7 @@ function(check_compiler)
       message(FATAL_ERROR "${ERROR_MESSAGE} GCC less than 4.7")
     endif()
   endif()
-  message(STATUS "Compiler was positively checked for C++11 support")
+  message(STATUS "Available C++ Support: C++11")
 endfunction()
 
 # -----------------------------------------------------------------------------
