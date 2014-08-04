@@ -11,29 +11,29 @@
 #
 # -----------------------------------------------------------------------------
 function(get_processor_count OUTPUT_PROCESSOR_COUNT)
-	set(PROCESSOR_COUNT 1) # default
-	if(UNIX)
-		set(CPUINFO_FILE "/proc/cpuinfo")
-		if(EXISTS "${CPUINFO_FILE}")
-			file(STRINGS "${CPUINFO_FILE}" PROCESSOR_STRINGS REGEX "^processor.: [0-9]+$")
-			list(LENGTH PROCESSOR_STRINGS PROCESSOR_COUNT)
-		endif()
-	elseif(APPLE)
-		find_program(SystemProfiler "system_profiler")
-		if(SystemProfiler)
-			execute_process(COMMAND ${SystemProfiler} OUTPUT_VARIABLE SYSTEM_INFORMATION)
-			string(REGEX REPLACE
-				"^.*Total Number Of Cores: ([0-9]+).*$"
-				"\\1"
-				PROCESSOR_COUNT
-				"${SYSTEM_INFORMATION}"
-			)
-		endif()
-	elseif(WIN32)
-		set(PROCESSOR_COUNT "$ENV{NUMBER_OF_PROCESSORS}")
-	endif()
+  set(PROCESSOR_COUNT 1) # default
+  if(UNIX)
+    set(CPUINFO_FILE "/proc/cpuinfo")
+    if(EXISTS "${CPUINFO_FILE}")
+      file(STRINGS "${CPUINFO_FILE}" PROCESSOR_STRINGS REGEX "^processor.: [0-9]+$")
+      list(LENGTH PROCESSOR_STRINGS PROCESSOR_COUNT)
+    endif()
+  elseif(APPLE)
+    find_program(SystemProfiler "system_profiler")
+    if(SystemProfiler)
+      execute_process(COMMAND ${SystemProfiler} OUTPUT_VARIABLE SYSTEM_INFORMATION)
+      string(REGEX REPLACE
+        "^.*Total Number Of Cores: ([0-9]+).*$"
+        "\\1"
+        PROCESSOR_COUNT
+        "${SYSTEM_INFORMATION}"
+      )
+    endif()
+  elseif(WIN32)
+    set(PROCESSOR_COUNT "$ENV{NUMBER_OF_PROCESSORS}")
+  endif()
   message(STATUS "Available Thread(s): ${PROCESSOR_COUNT}")
-	set(${OUTPUT_PROCESSOR_COUNT} "${PROCESSOR_COUNT}" PARENT_SCOPE)
+  set(${OUTPUT_PROCESSOR_COUNT} "${PROCESSOR_COUNT}" PARENT_SCOPE)
 endfunction()
 
 # -----------------------------------------------------------------------------
