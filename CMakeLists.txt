@@ -22,6 +22,7 @@ include(Utility)
 # Global Variables
 # -----------------------------------------------------------------------------
 
+check_source_build()
 check_configuration_generator()
 check_compiler()
 get_processor_count(HOST_PROCESSOR_COUNT)
@@ -86,7 +87,26 @@ endforeach()
 # Source
 # -----------------------------------------------------------------------------
 
-add_subdirectory(src)
+glob_source_group(
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  Mate_INCLUDE_FILES
+  Mate_INCLUDE_DIR
+)
+add_executable(Mate
+  ${Mate_INCLUDE_FILES}
+)
+set_property(TARGET Mate
+  PROPERTY INCLUDE_DIRECTORIES
+    ${Mate_INCLUDE_DIR}
+)
+target_link_libraries(Mate Eigen)
+
+#set_property(TARGET Mate
+#  PROPERTY DEFINE_SYMBOL "BUILD_DLL"
+#)
+#set_property(TARGET Mate
+#  PROPERTY COMPILE_DEFINITIONS ${Eigen_COMPILE_DEFINITIONS}
+#)
 
 # -----------------------------------------------------------------------------
 # Testing
