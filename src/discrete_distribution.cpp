@@ -3,50 +3,54 @@
 
 #include <iostream>
 
-DiscreteDistribution::DiscreteDistribution()
+// -------------------------------------------------------------------------------------------------
+// public
+// -------------------------------------------------------------------------------------------------
+
+discrete_distribution::discrete_distribution()
 { /* empty */ }
 
-DiscreteDistribution::DiscreteDistribution(const std::uint64_t _observation_count)
+discrete_distribution::discrete_distribution(const std::uint64_t _observation_count)
 {
-  this->probabilities = Eigen::VectorXd::Ones(_observation_count) / static_cast<double>(_observation_count);
+  m_probabilities = Eigen::VectorXd::Ones(_observation_count) / static_cast<double>(_observation_count);
 }
 
-DiscreteDistribution::DiscreteDistribution(const Eigen::VectorXd& _probabilities)
+discrete_distribution::discrete_distribution(const Eigen::VectorXd& _probabilities)
 {
   // make sure the probability distribution is normalized
   double sum = _probabilities.sum();
   if (sum > 0)
   {
-    this->probabilities = _probabilities / sum;
+    m_probabilities = _probabilities / sum;
   }
   else
   {
     // force normalization
-    this->probabilities.resize(static_cast<std::uint64_t>(_probabilities.size()));
-    this->probabilities.fill(1 / static_cast<double>(_probabilities.size()));
+    m_probabilities.resize(static_cast<std::uint64_t>(_probabilities.size()));
+    m_probabilities.fill(1 / static_cast<double>(_probabilities.size()));
   }
 }
 
-double DiscreteDistribution::Probability(const Eigen::VectorXd& _observation) const
+double discrete_distribution::probability(const Eigen::VectorXd& _observation) const
 {
   const std::uint64_t obs = static_cast<std::uint64_t>(_observation[0]);
 
   check_observation(obs);
 
-  return probabilities(obs);
+  return m_probabilities(obs);
 }
 
-Eigen::VectorXd DiscreteDistribution::Random() const
+Eigen::VectorXd discrete_distribution::random() const
 {
   // generate a random, uniformly distributed number
   double random_observation = math::random();
   Eigen::VectorXd result(1);
 
   double sum_probability = 0;
-  std::uint64_t max = this->probabilities.size();
+  std::uint64_t max = m_probabilities.size();
   for (std::uint64_t observation = 0; observation < max; observation++)
   {
-    if ((sum_probability += this->probabilities[observation]) >= random_observation)
+    if ((sum_probability += m_probabilities[observation]) >= random_observation)
     {
       result[0] = static_cast<double>(observation);
       return result;
@@ -58,10 +62,10 @@ Eigen::VectorXd DiscreteDistribution::Random() const
   return result;
 }
 
-void DiscreteDistribution::Estimate(const Eigen::MatrixXd& _observations)
+void discrete_distribution::estimate(const Eigen::MatrixXd& _observations)
 {
   // clear probabilities
-  this->probabilities.setZero();
+  m_probabilities.setZero();
 
   std::uint64_t max = _observations.cols();
   for (std::uint64_t i = 0; i < max; i++)
@@ -71,17 +75,18 @@ void DiscreteDistribution::Estimate(const Eigen::MatrixXd& _observations)
     check_observation(obs,i);
 
     // add the probability of each observation
-    this->probabilities(obs)++;
+    m_probabilities(obs)++;
   }
 
   normalize();
 }
 
-void DiscreteDistribution::Estimate(const Eigen::MatrixXd& _observations,
-                                    const Eigen::VectorXd& _observations_probability)
+void discrete_distribution::estimate(
+  const Eigen::MatrixXd& _observations,
+  const Eigen::VectorXd& _observations_probability)
 {
   // clear probabilities
-  this->probabilities.setZero();
+  m_probabilities.setZero();
 
   std::uint64_t max = _observations.cols();
   for (std::uint64_t i = 0; i < max; i++)
@@ -91,43 +96,36 @@ void DiscreteDistribution::Estimate(const Eigen::MatrixXd& _observations,
     check_observation(obs,i);
 
     // add the probability of each observation
-    probabilities(obs) += _observations_probability[i];
+    m_probabilities(obs) += _observations_probability[i];
   }
 
   normalize();
-}
-
-std::string DiscreteDistribution::ToString() const
-{
-  std::ostringstream convert;
-  convert << "DiscreteDistribution [" << this << "]" << std::endl;
-  convert << "Probabilities:" << std::endl;
-  convert << probabilities;
-  return convert.str();
 }
 
 // -------------------------------------------------------------------------------------------------
 // private
 // -------------------------------------------------------------------------------------------------
 
-void DiscreteDistribution::normalize()
+void discrete_distribution::normalize()
 {
   // make sure the probability distribution is normalized
-  double sum = this->probabilities.sum();
+  double sum = m_probabilities.sum();
   if (sum > 0)
   {
-    this->probabilities /= sum;
+    m_probabilities /= sum;
   }
   else
   {
     // force normalization
-    this->probabilities.fill(1 / static_cast<double>(this->probabilities.size()));
+    m_probabilities.fill(1 / static_cast<double>(m_probabilities.size()));
   }
 }
 
-void DiscreteDistribution::check_observation(const std::uint64_t _observation, const std::uint64_t _index) const
+void discrete_distribution::check_observation(
+  const std::uint64_t _observation,
+  const std::uint64_t _index) const
 {
-  if (_observation >= static_cast<double>(this->probabilities.size()))
+  if (_observation >= static_cast<double>(m_probabilities.size()))
   {
     std::cout
       << "Observation " 
@@ -135,8 +133,23 @@ void DiscreteDistribution::check_observation(const std::uint64_t _observation, c
       << " ("
       << _observation
       << ") must be in [0,"
-      << this->probabilities.size()
+      << m_probabilities.size()
       << "] for this distribution."
       << std::endl;
   }
+}
+
+// -------------------------------------------------------------------------------------------------
+// friend
+// -------------------------------------------------------------------------------------------------
+
+std::ostream& operator<<(
+  std::ostream& _ostream,
+  discrete_distribution& _discrete_distribution)
+{
+  _ostream
+    << "discrete_distribution ["
+    << _discrete_distribution.m_probabilities
+    << "]\n";
+  return _ostream;
 }

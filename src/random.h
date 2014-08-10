@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <random>
+#include <cmath>
 
 namespace math {
 
@@ -45,6 +46,21 @@ inline double random_normal()
 inline double random_normal(const double mean, const double variance)
 {
   return variance * random_normal() + mean;
+}
+
+/// Generate a uniform random integer.
+/// \param max maximum of the integer value.
+inline int random_int(const int max)
+{
+  return static_cast<int>(std::floor(max * random()));
+}
+
+/// Generate a uniform random integer.
+/// \param min minimum of the integer value range.
+/// \param max maximum of the integer value range.
+inline int random_int(const int min, const int max)
+{
+  return min + static_cast<int>(std::floor((max - min) * random()));
 }
 
 }; // namespace math
