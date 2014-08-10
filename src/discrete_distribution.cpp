@@ -1,4 +1,5 @@
 #include "discrete_distribution.h"
+#include "random.h"
 
 #include <iostream>
 
@@ -37,9 +38,8 @@ double DiscreteDistribution::Probability(const Eigen::VectorXd& _observation) co
 
 Eigen::VectorXd DiscreteDistribution::Random() const
 {
-  // Generate a random number.
-  //double random_observation = math::Random();
-  double random_observation = 0.5;
+  // generate a random, uniformly distributed number
+  double random_observation = math::random();
   Eigen::VectorXd result(1);
 
   double sum_probability = 0;
