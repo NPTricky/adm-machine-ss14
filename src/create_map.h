@@ -1,5 +1,8 @@
+#pragma once
+
 #include <map>
 
+/// Workaround for lack of c++11 initializer list syntax for a map in VS2012.
 template <typename T, typename U>
 class create_map
 {

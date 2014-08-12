@@ -48,14 +48,14 @@ inline double random_normal(const double mean, const double variance)
   return variance * random_normal() + mean;
 }
 
-/// Generate a uniform random integer.
+/// Generate a uniform random integer with the specified maximal value.
 /// \param max maximum of the integer value.
 inline int random_int(const int max)
 {
   return static_cast<int>(std::floor(max * random()));
 }
 
-/// Generate a uniform random integer.
+/// Generate a uniform random integer within the specified range.
 /// \param min minimum of the integer value range.
 /// \param max maximum of the integer value range.
 inline int random_int(const int min, const int max)
