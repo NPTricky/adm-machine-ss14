@@ -3,9 +3,9 @@
 #include <string>
 #include <sstream>
 
-std::vector< std::pair<float,order> > protocol_loader::read(std::istream& _istream)
+std::vector<order> protocol_loader::read(std::istream& _istream)
 {
-  std::vector< std::pair<float,order> > protocol;
+  std::vector<order> protocol;
 
   if (!_istream) return protocol;
 
@@ -16,7 +16,7 @@ std::vector< std::pair<float,order> > protocol_loader::read(std::istream& _istre
   {
     std::istringstream iss(line);
     if (!(iss >> a >> b)) { break; } // error
-    protocol.push_back(std::make_pair(a,b));
+    protocol.push_back(b);
   }
 
   return protocol;

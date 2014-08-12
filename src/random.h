@@ -13,7 +13,7 @@ extern std::uniform_real_distribution<> uniform_real_distribution;
 extern std::normal_distribution<> normal_distribution;
 
 /// Define a seed for general pseudo random number generation.
-inline void random_seed(const std::uint64_t _seed)
+inline void seed(const std::uint64_t _seed)
 {
   std::uint32_t seed = static_cast<std::uint32_t>(_seed);
   engine.seed(seed);
