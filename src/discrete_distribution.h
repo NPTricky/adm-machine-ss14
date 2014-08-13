@@ -16,13 +16,10 @@
 class discrete_distribution
 {
 public:
-  /// Default constructor, which creates a distribution that has no observations.
-  discrete_distribution();
-
   /// Define the discrete distribution as having _observation_count possible observations. The
   /// probability in each state will default to ( 1 / _observation_count ).
   /// \param _observation_count number of possible observations this distribution can have.
-  discrete_distribution(const std::uint64_t _observation_count);
+  discrete_distribution(const std::uint64_t _observation_count = 1);
 
   /// Define the discrete distribution as having the given probabilities for each observation.
   /// \param _probabilities probability of each possible observation.

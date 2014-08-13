@@ -7,12 +7,11 @@
 // public
 // -------------------------------------------------------------------------------------------------
 
-discrete_distribution::discrete_distribution()
-{ /* empty */ }
-
 discrete_distribution::discrete_distribution(const std::uint64_t _observation_count)
   : m_probabilities(Eigen::VectorXd::Ones(_observation_count) / static_cast<double>(_observation_count))
-{ /* empty */ }
+{
+  /* empty */
+}
 
 discrete_distribution::discrete_distribution(const Eigen::VectorXd& _probabilities)
 {
