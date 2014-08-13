@@ -11,6 +11,7 @@ extern std::random_device random_device;
 extern std::mt19937_64 engine;
 extern std::uniform_real_distribution<> uniform_real_distribution;
 extern std::normal_distribution<> normal_distribution;
+extern std::weibull_distribution<> weibull_distribution;
 
 /// Define a seed for general pseudo random number generation.
 inline void seed(const std::uint64_t _seed)
@@ -27,40 +28,54 @@ inline double random()
 }
 
 /// Generate a uniform random number within the specified range.
-/// \param min minimum of the value range.
-/// \param max maximum of the value range.
-inline double random(const double min, const double max)
+/// \param _min minimum of the value range.
+/// \param _max maximum of the value range.
+inline double random(const double _min, const double _max)
 {
-  return min + (max - min) * random();
+  return _min + (_max - _min) * random();
 }
 
-/// Generate a normally distributed random number with (mean = 0) and (variance = 1).
+/// Generate a normally distributed random number with (_mean = 0) and (_variance = 1).
 inline double random_normal()
 {
   return normal_distribution(engine);
 }
 
 /// Generate a normally distributed random number with the specified mean and variance.
-/// \param mean mean of the distribution.
-/// \param variance variance of the distribution.
-inline double random_normal(const double mean, const double variance)
+/// \param _mean mean of the distribution.
+/// \param _variance variance of the distribution.
+inline double random_normal(const double _mean, const double _variance)
 {
-  return variance * random_normal() + mean;
+  return _variance * random_normal() + _mean;
+}
+
+/// Generate a weibull distributed random number with the specified shape and scale.
+inline double random_weibull()
+{
+  return weibull_distribution(engine);
+}
+
+/// Create an independent weibull distribution with the shape and scale parameters.
+/// \param _shape parameter defining the shape of the distribution. (_shape > 0)
+/// \param _scale parameter defining the scale of the distribution. (_scale > 0)
+inline void set_weibull(const double _shape, const double _scale)
+{
+  weibull_distribution = std::weibull_distribution<>(_shape,_scale);
 }
 
 /// Generate a uniform random integer with the specified maximal value.
-/// \param max maximum of the integer value.
-inline int random_int(const int max)
+/// \param _max maximum of the integer value.
+inline int random_int(const int _max)
 {
-  return static_cast<int>(std::floor(max * random()));
+  return static_cast<int>(std::floor(_max * random()));
 }
 
 /// Generate a uniform random integer within the specified range.
-/// \param min minimum of the integer value range.
-/// \param max maximum of the integer value range.
-inline int random_int(const int min, const int max)
+/// \param _min minimum of the integer value range.
+/// \param _max maximum of the integer value range.
+inline int random_int(const int _min, const int _max)
 {
-  return min + static_cast<int>(std::floor((max - min) * random()));
+  return _min + static_cast<int>(std::floor((_max - _min) * random()));
 }
 
 }; // namespace math
