@@ -2,26 +2,34 @@
 
 #include <map>
 
-/// Workaround for lack of c++11 initializer list syntax for a map in VS2012.
-template <typename T, typename U>
+/// Generic class for the chained creation of a std::map.
+template <typename K, typename V>
 class create_map
 {
-private:
-  std::map<T, U> m_map;
 public:
-  create_map(const T& key, const U& val)
+  /// Constructor for a map with a single entry.
+  /// \param _key
+  /// \param _value
+  create_map(const K& _key, const V& _value)
   {
-    m_map[key] = val;
+    m_map[_key] = _value;
   }
 
-  create_map<T, U>& operator()(const T& key, const U& val)
+  /// Operator() for chaining of key-value pairs.
+  /// \param _key
+  /// \param _value
+  create_map<K, V>& operator()(const K& _key, const V& _value)
   {
-    m_map[key] = val;
+    m_map[_key] = _value;
     return *this;
   }
 
-  operator std::map<T, U>()
+  operator std::map<K, V>()
   {
     return m_map;
   }
+
+private:
+  std::map<K, V> m_map;
+
 };
