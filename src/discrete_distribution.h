@@ -74,13 +74,6 @@ public:
     const discrete_distribution& _discrete_distribution
   );
 
-  /// Overload the input operator for easy input (deserialization, cin, ...).
-  /// return a istream representation of this distribution.
-  friend std::istream& operator>>(
-    std::istream& _istream,
-    discrete_distribution& _discrete_distribution
-  );
-
 private:
   /// Vector of probabilities in this distribution.
   Eigen::VectorXd m_probabilities;

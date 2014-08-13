@@ -11,9 +11,8 @@ discrete_distribution::discrete_distribution()
 { /* empty */ }
 
 discrete_distribution::discrete_distribution(const std::uint64_t _observation_count)
-{
-  m_probabilities = Eigen::VectorXd::Ones(_observation_count) / static_cast<double>(_observation_count);
-}
+  : m_probabilities(Eigen::VectorXd::Ones(_observation_count) / static_cast<double>(_observation_count))
+{ /* empty */ }
 
 discrete_distribution::discrete_distribution(const Eigen::VectorXd& _probabilities)
 {
@@ -149,12 +148,4 @@ std::ostream& operator<<(
 {
   _ostream << _discrete_distribution.m_probabilities;
   return _ostream;
-}
-
-std::istream& operator>>(
-  std::istream& _istream,
-  discrete_distribution& _discrete_distribution)
-{
-  _istream >> _discrete_distribution.m_probabilities;
-  return _istream;
 }
