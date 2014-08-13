@@ -67,10 +67,17 @@ public:
   /// \return reference to the vector of probabilities.
   Eigen::VectorXd& probabilities() { return m_probabilities; }
 
-  /// Overload of the output operator for easy printing.
+  /// Overload of the output operator for easy output (serialization, print, ...).
   /// \return a ostream representation of this distribution.
   friend std::ostream& operator<<(
     std::ostream& _ostream,
+    const discrete_distribution& _discrete_distribution
+  );
+
+  /// Overload the input operator for easy input (deserialization, cin, ...).
+  /// return a istream representation of this distribution.
+  friend std::istream& operator>>(
+    std::istream& _istream,
     discrete_distribution& _discrete_distribution
   );
 

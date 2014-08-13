@@ -145,11 +145,16 @@ void discrete_distribution::check_observation(
 
 std::ostream& operator<<(
   std::ostream& _ostream,
+  const discrete_distribution& _discrete_distribution)
+{
+  _ostream << _discrete_distribution.m_probabilities;
+  return _ostream;
+}
+
+std::istream& operator>>(
+  std::istream& _istream,
   discrete_distribution& _discrete_distribution)
 {
-  _ostream
-    << "discrete_distribution ["
-    << _discrete_distribution.m_probabilities
-    << "]\n";
-  return _ostream;
+  _istream >> _discrete_distribution.m_probabilities;
+  return _istream;
 }
