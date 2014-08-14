@@ -81,7 +81,7 @@ void discrete_distribution::estimate(const Eigen::MatrixXd& _observations)
 
 void discrete_distribution::estimate(
   const Eigen::MatrixXd& _observations,
-  const Eigen::VectorXd& _observations_probability)
+  const Eigen::VectorXd& _probabilities)
 {
   // clear probabilities
   m_probabilities.setZero();
@@ -94,7 +94,7 @@ void discrete_distribution::estimate(
     check_observation(obs,i);
 
     // add the probability of each observation
-    m_probabilities(obs) += _observations_probability[i];
+    m_probabilities(obs) += _probabilities[i];
   }
 
   normalize();

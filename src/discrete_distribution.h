@@ -50,11 +50,11 @@ public:
   /// greater than the number of possible observations. Whether each observation is actually from
   /// this distribution is taken into account.
   /// \param _observations list of observations.
-  /// \param _observations_probability list of probabilities that each observation is actually from
+  /// \param _probabilities list of probabilities that each observation is actually from
   ///   this distribution.
   void estimate(
     const Eigen::MatrixXd& _observations,
-    const Eigen::VectorXd& _observations_probability
+    const Eigen::VectorXd& _probabilities
   );
 
   /// \return the vector of probabilities.
