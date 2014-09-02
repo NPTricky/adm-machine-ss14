@@ -10,5 +10,7 @@ target_include_directories(Eigen INTERFACE
   $<INSTALL_INTERFACE:include/Eigen>
 )
 
+target_compile_definitions(Eigen INTERFACE "EIGEN_NO_DEBUG")
+
 #EIGEN_USE_BLAS
 #EIGEN_USE_LAPACKE_STRICT

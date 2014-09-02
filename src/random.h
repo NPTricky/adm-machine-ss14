@@ -11,7 +11,6 @@ extern std::random_device random_device;
 extern std::mt19937_64 engine;
 extern std::uniform_real_distribution<> uniform_real_distribution;
 extern std::normal_distribution<> normal_distribution;
-extern std::weibull_distribution<> weibull_distribution;
 
 /// Define a seed for general pseudo random number generation.
 inline void seed(const std::uint64_t _seed)
@@ -47,20 +46,6 @@ inline double random_normal()
 inline double random_normal(const double _mean, const double _variance)
 {
   return _variance * random_normal() + _mean;
-}
-
-/// Generate a weibull distributed random number with the specified shape and scale.
-inline double random_weibull()
-{
-  return weibull_distribution(engine);
-}
-
-/// Create an independent weibull distribution with the shape and scale parameters.
-/// \param _shape parameter defining the shape of the distribution. (_shape > 0)
-/// \param _scale parameter defining the scale of the distribution. (_scale > 0)
-inline void set_weibull(const double _shape, const double _scale)
-{
-  weibull_distribution = std::weibull_distribution<>(_shape,_scale);
 }
 
 /// Generate a uniform random integer with the specified maximal value.

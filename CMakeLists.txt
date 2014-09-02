@@ -77,10 +77,11 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ${CONFIG_USE_SOLUTION_FOLDERS})
 
 list(APPEND THIRD_PARTY_LIBRARIES
   eigen
+  boost
 )
 
-foreach(THIRD_PARTY_LIBRARY ${THIRD_PARTY_LIBRARIES})
-  add_subdirectory(ext/${THIRD_PARTY_LIBRARY}.cmake)
+foreach(CURRENT_THIRD_PARTY_LIBRARY ${THIRD_PARTY_LIBRARIES})
+  add_subdirectory(ext/${CURRENT_THIRD_PARTY_LIBRARY}.cmake)
 endforeach()
 
 # -----------------------------------------------------------------------------
