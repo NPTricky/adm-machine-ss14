@@ -17,8 +17,8 @@
 #define MINPROB    1.0e-12
 #define HPM        0
 #define LPM        2
-#define DELTA      0.005
-#define ENDTIME		 10
+#define DELTA      1
+#define ENDTIME    500
 #define PI         3.1415926
 
 typedef struct tproxel *pproxel;
@@ -60,7 +60,9 @@ irf = instantaneous rate function
 /* returns weibull instantaneous rate function */
 double weibullhrf(double x, double alpha, double beta, double x0) {
   double y;
+
   y = beta / alpha*pow((x - x0) / alpha, beta - 1);
+
   return y;
 }
 
@@ -229,7 +231,7 @@ char* printstate(int s) {
   return c;
 }
 
-/* print out a proxel */
+/* print a proxel */
 void printproxel(proxel *c) {
   printf("state: %s - tau: (%2d,%2d) - probability: %7.5le\n", printstate(c->s), c->tau1k, c->tau2k, c->val);
 }
@@ -243,13 +245,13 @@ void printtree(proxel *p) {
   printtree(p->right);
 }
 
-/* print out complete solution */
+/* print complete solution */
 void plotsolution(int kmax) {
   printf("\n\n");
   int k;
 
   for (k = 0; k <= kmax; k++)
-    printf("%7.5lf\t%7.5le\t%7.5le\n", k*dt, y[0][k], y[2][k]);
+    printf("T %6.3f HPM %7.5le LPM %7.5le\n", k*dt, y[0][k], y[2][k]);
 }
 
 /********************************************************/
@@ -455,13 +457,14 @@ int main(int argc, char **argv) {
   maxccp = 0;
   double tmax = ENDTIME;
   dt = DELTA;
-  kmax = tmax / dt + 1;
+  /* fix: rounding error */
+  kmax = floor(tmax / dt + 0.5);
+  TAUMAX = kmax;
   for (k = 0; k < 3; k++) {
     y[k] = malloc(sizeof(double)*(kmax + 2));
     for (j = 0; j < kmax + 2; j++)
       y[k][j] = 0.0;
   }
-  TAUMAX = tmax / dt + 1;
 
   /* set initial proxel */
   addproxel(HPM, 0, 0, 1.0);
@@ -478,7 +481,7 @@ int main(int argc, char **argv) {
       printf("\nSTEP %d\n", k);
       printf("Size of tree %d\n", size(root[sw]));
     }
-
+    
     sw = 1 - sw;
 
     /* second loop: iterating over all proxels of a time step */
@@ -523,10 +526,8 @@ int main(int argc, char **argv) {
   printf("error = %7.5le\n", eerror);
   printf("ccpx = %d\n", maxccp);
   printf("count = %d\n", totcnt);
-  
-  printproxel(currproxel);
-  
-  //plotsolution(kmax);
+
+  plotsolution(kmax);
   
   return(0);
 }
