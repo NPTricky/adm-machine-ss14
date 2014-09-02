@@ -89,7 +89,7 @@ endforeach()
 # -----------------------------------------------------------------------------
 
 glob_source_group(
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/mate
   Mate_INCLUDE_FILES
   Mate_INCLUDE_DIR
 )
@@ -108,6 +108,14 @@ target_link_libraries(Mate Eigen)
 #set_property(TARGET Mate
 #  PROPERTY COMPILE_DEFINITIONS ${Eigen_COMPILE_DEFINITIONS}
 #)
+
+add_executable(CProxel
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/proxel_example.c
+)
+
+add_executable(CHNMM
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/proxel_example.c
+)
 
 # -----------------------------------------------------------------------------
 # Testing
