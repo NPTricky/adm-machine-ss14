@@ -1,12 +1,12 @@
-/*******************************************************************
- *           Special Purpose Proxel-Based Solver                   *
- *                                                                 *
- *           Advanced Discrete Modeling 2006                       *
- *                                                                 *
- *           written/modified by                                   *
- *           Graham Horton, Sanja Lazarova-Molnar, Fabian Wickborn *
- *           Tim Benedict Jagla                                    *
- ******************************************************************/
+/********************************************************/
+/* Special Purpose Proxel-Based Solver                  */
+/*                                                      */
+/* Advanced Discrete Modeling 2006                      */
+/*                                                      */
+/* written/modified by                                  */
+/* Graham Horton, Sanja Lazarova-Molnar,                */
+/* Fabian Wickborn, Tim Benedict Jagla                  */
+/********************************************************/
 
 #include <stdio.h>
 #include <math.h>
@@ -14,11 +14,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <string.h>
+
 #define MINPROB    1.0e-12
 #define HPM        0
 #define LPM        2
-#define DELTA      1
-#define ENDTIME    500
+#define DELTA      4
+#define ENDTIME    100
 #define PI         3.1415926
 
 typedef struct tproxel *pproxel;
@@ -34,7 +36,7 @@ typedef struct tproxel {
 
 double *y[3];                  /* vectors for storing solution      */
 double  tmax;                  /* maximum simulation time           */
-int     TAUMAX;
+int     TAUMAX;                /* maximum simulation steps          */
 int     totcnt;                /* counts total proxels processed    */
 int     maxccp;                /* counts max # concurrent proxels   */
 int     ccpcnt;                /* counts concurrent proxels         */
@@ -42,12 +44,11 @@ proxel *root[2];               /* trees for organising proxels      */
 proxel *firstfree = NULL;      /* linked list of free proxels       */
 double  eerror = 0;            /* accumulated error                 */
 int     sw = 0;                /* switch for old and new time steps */
-int     len;
-double  dt;
+double  dt;                    /* delta time (DELTA)                */
 
 /********************************************************/
-/*	distribution functions			                        */
-/*	instantaneous rate functions			                  */
+/* distribution functions                               */
+/* instantaneous rate functions                         */
 /********************************************************/
 
 /*
@@ -110,11 +111,11 @@ double logGamma(double x){
   tmp = t + fpf;
   tmp = (t + 0.5) * log(tmp) - tmp;
   ser = 1;
-  for (i = 1; i <= 6; i++){
+  for (i = 1; i <= 6; i++) {
     t = t + 1;
     ser = ser + coef[i - 1] / t;
   }
-  return (tmp + log(step * ser));
+  return tmp + log(step * ser);
 }
 
 double gammaSeries(double x, double a){
@@ -122,13 +123,13 @@ double gammaSeries(double x, double a){
   double eps = 0.0000003;
   double sum = 1.0 / a, ap = a, gln = logGamma(a), del = sum;
 
-  for (n = 1; n <= maxit; n++){
+  for (n = 1; n <= maxit; n++) {
     ap++;
     del = del * x / ap;
     sum = sum + del;
     if (fabs(del) < fabs(sum) * eps) break;
   }
-  return (sum * exp(-x + a * log(x) - gln));
+  return sum * exp(-x + a * log(x) - gln);
 }
 
 double gammaCF(double x, double a){
@@ -137,7 +138,7 @@ double gammaCF(double x, double a){
   double gln = logGamma(a), g = 0, gold = 0, a0 = 1, a1 = x, b0 = 0, b1 = 1, fac = 1;
   double an, ana, anf;
 
-  for (n = 1; n <= maxit; n++){
+  for (n = 1; n <= maxit; n++) {
     an = 1.0 * n;
     ana = an - a;
     a0 = (a1 + a0 * ana) * fac;
@@ -145,7 +146,7 @@ double gammaCF(double x, double a){
     anf = an * fac;
     a1 = x * a0 + anf * a1;
     b1 = x * b0 + anf * b1;
-    if (a1 != 0){
+    if (a1 != 0) {
       fac = 1.0 / a1;
       g = b1 * fac;
       if (fabs((g - gold) / g) < eps)
@@ -153,7 +154,7 @@ double gammaCF(double x, double a){
       gold = g;
     }
   }
-  return (exp(-x + a * log(x) - gln) * g);
+  return exp(-x + a * log(x) - gln) * g;
 }
 
 double gammacdf(double x, double a){
@@ -163,7 +164,7 @@ double gammacdf(double x, double a){
     if (x < a + 1)
       return gammaSeries(x, a);
     else
-      return (1 - gammaCF(x, a));
+      return 1 - gammaCF(x, a);
 }
 
 /* returns normal cumulated distribution function */
@@ -173,43 +174,43 @@ double normalcdf(double x, double m, double s){
   if (z >= 0)
     return 0.5 + 0.5 * gammacdf(z * z / 2, 0.5);
   else
-    return (0.5 - 0.5 * gammacdf(z * z / 2, 0.5));
+    return 0.5 - 0.5 * gammacdf(z * z / 2, 0.5);
 }
 
 /* returns normal instantaneous rate function */
 double normalhrf(double x, double m, double s){
-  return(normalpdf(x, m, s) / (1 - normalcdf(x, m, s)));
+  return normalpdf(x, m, s) / (1 - normalcdf(x, m, s));
 }
 
 /* returns logarithmic normal probability density function */
-double lognormalpdf(double x, double a, double b){
+double lognormalpdf(double x, double a, double b) {
   double z = (log(x) - a) / b;
 
-  return(exp(-z * z / 2) / (x * sqrt(2 * PI) * b));
+  return exp(-z * z / 2) / (x * sqrt(2 * PI) * b);
 }
 
 /* returns logarithmic normal cumulated distribution function */
-double lognormalcdf(double x, double a, double b){
+double lognormalcdf(double x, double a, double b) {
   double z = (log(x) - a) / b;
 
   if (x == 0)
     return 0;
   if (z >= 0)
-    return(0.5 + 0.5 * gammacdf(z * z / 2, 0.5));
+    return 0.5 + 0.5 * gammacdf(z * z / 2, 0.5);
   else
-    return(0.5 - 0.5 * gammacdf(z * z / 2, 0.5));
+    return 0.5 - 0.5 * gammacdf(z * z / 2, 0.5);
 }
 
 /* returns logarithmic normal instantaneous rate function using mu & sigma */
 double lognormalhrf(double x, double a, double b){
   if ((x == 0.0) || (x > 70000))
-    return(0.0);
+    return 0.0;
   else
-    return(lognormalpdf(x, a, b) / (1.0 - lognormalcdf(x, a, b)));
+    return lognormalpdf(x, a, b) / (1.0 - lognormalcdf(x, a, b));
 }
 
 /********************************************************/
-/*	output functions			                              */
+/* output functions                                     */
 /********************************************************/
 
 /* print a state in human readable form */
@@ -218,14 +219,11 @@ char* printstate(int s) {
 
   switch (s) {
   case HPM:
-    c = "HPM";
-    break;
+    c = "HPM"; break;
   case LPM:
-    c = "LPM";
-    break;
+    c = "LPM"; break;
   default:
-    c = "NULL";
-    break;
+    c = "NULL"; break;
   }
 
   return c;
@@ -233,10 +231,11 @@ char* printstate(int s) {
 
 /* print a proxel */
 void printproxel(proxel *c) {
-  printf("state: %s - tau: (%2d,%2d) - probability: %7.5le\n", printstate(c->s), c->tau1k, c->tau2k, c->val);
+  int leaf = (c->left == NULL && c->right == NULL);
+  printf("ID: %6i - %s - Tau: (%3d,%3d) - Prob.: %7.5le - Leaf: %i\n", c->id, printstate(c->s), c->tau1k, c->tau2k, c->val, leaf);
 }
 
-/* print all proxels in tree */
+/* print all proxels of a proxel tree */
 void printtree(proxel *p) {
   if (p == NULL)
     return;
@@ -249,13 +248,35 @@ void printtree(proxel *p) {
 void plotsolution(int kmax) {
   printf("\n\n");
   int k;
+  for (k = 0; k <= kmax; k++) {
+    printf("Time: %4.0f - %s-Prob.: %7.5le - %s-Prob.: %7.5le\n", k*dt, printstate(HPM), y[0][k], printstate(LPM), y[2][k]);
+  }
+}
 
-  for (k = 0; k <= kmax; k++)
-    printf("T %6.3f HPM %7.5le LPM %7.5le\n", k*dt, y[0][k], y[2][k]);
+/* count leafs of a proxel tree */
+int countleafs(proxel *p) {
+  if (p == NULL) {
+    return 0;
+  }
+
+  if (p->left == NULL && p->right == NULL) {
+    return 1;
+  } else {
+    return countleafs(p->left) + countleafs(p->right);
+  }
+}
+
+/* general function to collect some data about a proxel tree */
+void analyse(proxel *p) {
+  if (p == NULL) {
+    return;
+  }
+
+  printf("Leaf-Counter: %i\n", countleafs(p));
 }
 
 /********************************************************/
-/*	proxel manipulation functions			                  */
+/* proxel manipulation functions			                  */
 /********************************************************/
 
 /* compute unique id from proxel state */
@@ -458,7 +479,7 @@ int main(int argc, char **argv) {
   double tmax = ENDTIME;
   dt = DELTA;
   /* fix: rounding error */
-  kmax = floor(tmax / dt + 0.5);
+  kmax = (int)floor(tmax / dt + 0.5);
   TAUMAX = kmax;
   for (k = 0; k < 3; k++) {
     y[k] = malloc(sizeof(double)*(kmax + 2));
@@ -528,6 +549,8 @@ int main(int argc, char **argv) {
   printf("count = %d\n", totcnt);
 
   plotsolution(kmax);
-  
+  printtree(root[sw]);
+  analyse(root[sw]);
+
   return(0);
 }
