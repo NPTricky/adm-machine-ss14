@@ -19,7 +19,7 @@
 #define MINPROB    1.0e-12
 #define HPM        0
 #define LPM        2
-#define DELTA      4
+#define DELTA      0.5
 #define ENDTIME    100
 #define PI         3.1415926
 
@@ -231,8 +231,20 @@ char* printstate(int s) {
 
 /* print a proxel */
 void printproxel(proxel *c) {
+  int left = 0;
+  int right = 0;
+  
+  if (c->left != NULL) {
+    left = c->left->id;
+  }
+
+  if (c->right != NULL) {
+    right = c->right->id;
+  }
+  
   int leaf = (c->left == NULL && c->right == NULL);
-  printf("ID: %6i - %s - Tau: (%3d,%3d) - Prob.: %7.5le - Leaf: %i\n", c->id, printstate(c->s), c->tau1k, c->tau2k, c->val, leaf);
+  
+  printf("ID: %6i - %s - Tau: (%3d,%3d) - Prob.: %7.5le - Leaf: %i (%i,%i)\n", c->id, printstate(c->s), c->tau1k, c->tau2k, c->val, leaf, left, right);
 }
 
 /* print all proxels of a proxel tree */
@@ -249,7 +261,7 @@ void plotsolution(int kmax) {
   printf("\n\n");
   int k;
   for (k = 0; k <= kmax; k++) {
-    printf("Time: %4.0f - %s-Prob.: %7.5le - %s-Prob.: %7.5le\n", k*dt, printstate(HPM), y[0][k], printstate(LPM), y[2][k]);
+    printf("Time: %6.2f - %s-Prob.: %7.5le - %s-Prob.: %7.5le\n", k*dt, printstate(HPM), y[0][k], printstate(LPM), y[2][k]);
   }
 }
 
@@ -266,13 +278,47 @@ int countleafs(proxel *p) {
   }
 }
 
+/* get the probability of a specific state path */
+double stateprobability(proxel *p, int states[], int step) {
+  if (p == NULL) {
+    return 0.0;
+  }
+
+  if (p->s == states[step]) {
+    printproxel(p);
+    int next = ++step;
+    double result = stateprobability(p->left, states, next) + stateprobability(p->right, states, next);
+    if (result > 0) {
+      return result;
+    }
+    else {
+      return p->val;
+    }
+  }
+  else {
+    return 0.0;
+  }
+}
+
+/* compute size of tree */
+int size(proxel *p) {
+  if (p == NULL) {
+    return 0;
+  }
+
+  return size(p->left) + size(p->right) + 1;
+}
+
 /* general function to collect some data about a proxel tree */
 void analyse(proxel *p) {
   if (p == NULL) {
     return;
   }
 
-  printf("Leaf-Counter: %i\n", countleafs(p));
+  printf("Tree Size %d\n", size(p));
+  printf("# of Leafs: %i\n", countleafs(p));
+  int states[4] = {HPM,LPM,LPM,LPM};
+  printf("Path Probability %7.5le\n", stateprobability(p, states, 0));
 }
 
 /********************************************************/
@@ -282,17 +328,6 @@ void analyse(proxel *p) {
 /* compute unique id from proxel state */
 int state2id(int s, int t1k, int t2k) {
   return(TAUMAX*(TAUMAX*s + t1k) + t2k);
-}
-
-/* compute size of tree */
-int size(proxel *p) {
-  int sl, sr;
-
-  if (p == NULL)
-    return(0);
-  sl = size(p->left);
-  sr = size(p->right);
-  return(sl + sr + 1);
 }
 
 /* returns a proxel from the tree */
@@ -455,6 +490,9 @@ double overheat(double age) {
   return weibullhrf(age, 55, 4, 0);
 }
 
+double produce(double age) {
+  return dethrf(age, 1);
+}
 /* INSTANTANEOUS RATE FUNCTION 2 */
 double cooldown(double age) {
   return unihrf(age, 9, 11);
@@ -468,7 +506,7 @@ int main(int argc, char **argv) {
   int     k, j, kmax;
   proxel *currproxel;
   double  val, z;
-  int     s, tau1k; //, tau2k;
+  int     s, tau1k, tau2k;
 
   /* initialise the simulation */
   root[0] = NULL;
@@ -492,14 +530,11 @@ int main(int argc, char **argv) {
 
   /* first loop: iteration over all time steps*/
   for (k = 1; k <= kmax + 1; k++) {
-    //if(k==79 || k==78) printtree(root[sw]);
-
-    //printf("\nSTEP %d\n",k);
-    /* current model time is k*dt */
 
     /* print progress information */
     if (k % 100 == 0)  {
       printf("\nSTEP %d\n", k);
+      /* current model time is k*dt */
       printf("Size of tree %d\n", size(root[sw]));
     }
     
@@ -517,40 +552,55 @@ int main(int argc, char **argv) {
       }
       val = currproxel->val;
       tau1k = currproxel->tau1k;
-      /*tau2k = currproxel->tau2k;*/
+      tau2k = currproxel->tau2k;
       s = currproxel->s;
       y[s][k - 1] += val;
 
       /* create child proxels */
       switch (s) {
       case HPM:
+        /* probability to overheat the machine */
         z = dt * overheat(tau1k*dt);
         if (z < 1.0) {
           addproxel(LPM, 0, 0, val*z);
           addproxel(HPM, tau1k + 1, 0, val*(1 - z));
         }
-        else
+        else {
           addproxel(LPM, 0, 0, val);
+        }
         break;
       case LPM:
+        /* probability to cooldown the machine */
         z = dt * cooldown(tau1k*dt);
         if (z < 1.0) {
           addproxel(HPM, 0, 0, val*z);
           addproxel(LPM, tau1k + 1, 0, val*(1 - z));
         }
-        else
+        else {
           addproxel(HPM, 0, 0, val);
+        }
+        break;
+      default:
+        printf("something went wrong!");
+        break;
       }
     }
   }
 
-  printf("error = %7.5le\n", eerror);
+  printtree(root[sw]);
+
+  plotsolution(kmax);
+  
+  analyse(root[sw]);
+
+  proxel* one = root[0];
+  proxel* two = root[1];
+
+  printf("accumulated error = %7.5le\n", eerror);
   printf("ccpx = %d\n", maxccp);
   printf("count = %d\n", totcnt);
 
-  plotsolution(kmax);
-  printtree(root[sw]);
-  analyse(root[sw]);
+
 
   return(0);
 }
