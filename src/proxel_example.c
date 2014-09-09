@@ -25,6 +25,7 @@
 #define ENDTIME    50
 #define PI         3.1415926
 #define EMISSION   1 /* 1 = active */
+#define PATH       1 /* 1 = active */
 
 typedef struct tproxel *pproxel;
 
@@ -32,7 +33,7 @@ typedef struct tproxel {
   int     id;                  /* unique proxel id for searching    */
   int     s;                   /* discrete state of SPN             */
   int     tau1k;               /* first supplementary variable      */
-  int     tau2k;               /* second supplementary variable     */
+  int*    tau2k;               /* second supplementary variable     */
   double  val;                 /* proxel probability                */
   pproxel left, right;         /* pointers to child proxels in tree */
 } proxel;
@@ -48,11 +49,12 @@ proxel *firstfree = NULL;      /* linked list of free proxels       */
 double  eerror = 0;            /* accumulated error                 */
 int     sw = 0;                /* switch for old and new time steps */
 double  dt;                    /* delta time (DELTA)                */
-int     e;                     /* flag to forward emissio           */
+int     kmax;
+int     e;                     /* flag to forward emission          */
+int     p;                     /* flag to path tracking             */
 double *em[3];                 /* emission matrix                   */
 double *emsum[2];              /* symbol emission sum per timestep  */
 int    *emsequence;            /* symbol emission sequence          */
-int    *empaths[5];            /* most likely generating paths      */
 
 /********************************************************/
 /* distribution functions                               */
@@ -270,6 +272,17 @@ void printproxel(proxel *c) {
   int leaf = (c->left == NULL && c->right == NULL);
   
   printf("ID: %6i - %s - Age: %3d - Prob.: %7.5le - Leaf: %i (%i,%i)\n", c->id, printstate(c->s), c->tau1k, c->val, leaf, left, right);
+
+  if (p & leaf) {
+    int k;
+    printf("----------\nPath: { ", c->id);
+    for (k = 0; k < kmax + 2; ++k) {
+      if (c->tau2k[k] != 1) {
+        printf("%s ",printstate(c->tau2k[k]));
+      }
+    }
+    printf("}\n----------\n");
+  }
 }
 
 /* print all proxels of a proxel tree */
@@ -338,8 +351,8 @@ int size(proxel *p) {
 /********************************************************/
 
 /* compute unique id from proxel state */
-int state2id(int s, int t1k, int t2k) {
-  return(TAUMAX*(TAUMAX*s + t1k) + t2k);
+int state2id(int s, int t1k, int* t2k) {
+  return(TAUMAX*(TAUMAX*s + t1k));
 }
 
 /* returns a proxel from the tree */
@@ -408,12 +421,16 @@ proxel *getproxel()
 }
 
 /* get a fresh proxel and copy data into it */
-proxel *insertproxel(int s, int tau1k, int tau2k, double val) {
+proxel *insertproxel(int s, int tau1k, int* tau2k, double val) {
   proxel *temp;
 
   /* create new proxel or grab one from free list */
-  if (firstfree == NULL)
+  if (firstfree == NULL) {
     temp = malloc(sizeof(proxel));
+    if (p) {
+      temp->tau2k = malloc(sizeof(int) * (kmax + 2));
+    }
+  }
   else {
     temp = firstfree;
     firstfree = firstfree->right;
@@ -422,7 +439,12 @@ proxel *insertproxel(int s, int tau1k, int tau2k, double val) {
   temp->id = state2id(s, tau1k, tau2k);
   temp->s = s;
   temp->tau1k = tau1k;
-  temp->tau2k = tau2k;
+  if (p) {
+    memcpy(temp->tau2k, tau2k, sizeof(int) * (kmax + 2));
+  }
+  else {
+    temp->tau2k = tau2k;
+  }
   temp->val = val;
   ccpcnt += 1;
   if (maxccp < ccpcnt) {
@@ -434,7 +456,7 @@ proxel *insertproxel(int s, int tau1k, int tau2k, double val) {
 }
 
 /* adds a new proxel to the tree */
-void addproxel(int s, int tau1k, int tau2k, double val) {
+void addproxel(int s, int tau1k, int* tau2k, double val) {
   proxel *temp, *temp2;
   int cont = 1, id;
 
@@ -503,10 +525,6 @@ double overheat(double age) {
   return weibullhrf(age, 55, 4, 0);
 }
 
-double produce(double age) {
-  return dethrf(age, 1);
-}
-
 /* INSTANTANEOUS RATE FUNCTION 2 */
 double cooldown(double age) {
   return unihrf(age, 9, 11);
@@ -528,10 +546,11 @@ double emission(int t, int from, int to, double p, int o) {
 /********************************************************/
 
 int main(int argc, char **argv) {
-  int     k, j, kmax;
+  int     k, j;
   proxel *currproxel;
   double  val, z, valhpm, vallpm;
-  int     s, tau1k, tau2k;
+  int     s, tau1k;
+  int*    tau2k = NULL;
 
   /* initialise the simulation */
   root[0] = NULL;
@@ -542,6 +561,7 @@ int main(int argc, char **argv) {
   double tmax = ENDTIME;
   dt = DELTA;
   e = EMISSION;
+  p = PATH;
 
   if (e) {
     printf("Using Symbol Emission...\n\n");
@@ -550,8 +570,22 @@ int main(int argc, char **argv) {
     printf("No Symbol Emission...\n\n");
   }
 
+  if (p) {
+    printf("Using Path Tracking...\n\n");
+  }
+  else {
+    printf("No Path Tracking...\n\n");
+  }
+
   kmax = (int)floor(tmax / dt + 0.5);
   TAUMAX = kmax;
+
+  if (p) {
+    tau2k = malloc(sizeof(int) * (kmax + 2));
+    for (k = 0; k < kmax + 2; ++k) { // sequence relevant from k = 1
+      tau2k[k] = 1;
+    }
+  }
 
   /* initialize the solution vector for each time step */
   for (k = 0; k < 3; k++) {
@@ -583,27 +617,15 @@ int main(int argc, char **argv) {
 
     /* initialize the emission sequence */
     emsequence = malloc(sizeof(int) * (kmax + 2));
-    for (k = 1; k < kmax + 2; ++k) {
-      if (k % 2 == 0) {
-        emsequence[k] = WP;
-      }
-      else {
-        emsequence[k] = DP;
-      }
+    for (k = 0; k < kmax + 2; ++k) { // sequence relevant from k = 1
       emsequence[k] = WP;
     }
     printemissionsequence(kmax);
-
-    /* initialize the most likely paths */
-    for (k = 0; k < 5; k++) {
-      empaths[k] = malloc(sizeof(int) * (kmax + 2));
-      for (j = 0; j < kmax + 2; j++)
-        empaths[k][j] = 0;
-    }
   }
 
   /* set initial proxel */
-  addproxel(HPM, 0, 0, 1.0);
+  if(p) tau2k[0] = HPM;
+  addproxel(HPM, 0, tau2k, 1.0);
 
   /* first loop: iteration over all time steps*/
   /* current model time is k*dt */
@@ -647,8 +669,10 @@ int main(int argc, char **argv) {
             vallpm = val*z;
             valhpm = val*(1 - z);
           }
-          addproxel(LPM, 0, 0, vallpm);
-          addproxel(HPM, tau1k + 1, 0, valhpm);
+          if (p) tau2k[k] = LPM;
+          addproxel(LPM, 0, tau2k, vallpm);
+          if (p) tau2k[k] = HPM;
+          addproxel(HPM, tau1k + 1, tau2k, valhpm);
         }
         else {
           if (e) {
@@ -657,7 +681,8 @@ int main(int argc, char **argv) {
           else {
             vallpm = val;
           }
-          addproxel(LPM, 0, 0, vallpm);
+          if (p) tau2k[k] = LPM;
+          addproxel(LPM, 0, tau2k, vallpm);
         }
         break;
       case LPM:
@@ -672,8 +697,10 @@ int main(int argc, char **argv) {
             valhpm = val*z;
             vallpm = val*(1 - z);
           }
-          addproxel(HPM, 0, 0, valhpm);
-          addproxel(LPM, tau1k + 1, 0, vallpm);
+          if (p) tau2k[k] = HPM;
+          addproxel(HPM, 0, tau2k, valhpm);
+          if (p) tau2k[k] = LPM;
+          addproxel(LPM, tau1k + 1, tau2k, vallpm);
         }
         else {
           if (e) {
@@ -681,22 +708,17 @@ int main(int argc, char **argv) {
           }
           else {
             valhpm = val;
-          } 
-          addproxel(HPM, 0, 0, valhpm);
+          }
+          if (p) tau2k[k] = HPM;
+          addproxel(HPM, 0, tau2k, valhpm);
         }
         break;
       default:
-        printf("something went wrong!");
+        printf("Wrong!");
         break;
       }
     }
   }
-
-  /*
-  printf("\n");
-  printtree(root[sw]);
-  printf("\n");
-  */
 
   plotsolution(kmax);
 
@@ -704,9 +726,12 @@ int main(int argc, char **argv) {
   printf("Proxels (Max Concurrent) = %d\n", maxccp);
   printf("Proxels (Total) = %d\n", totcnt);
   printf("Leafs (Total) = %i\n", countleafs(root[sw]));
-  printf("Accumulated Error = %7.5le\n", eerror);
+  printf("Accumulated Error = %7.5le\n\n", eerror);
 
-  printf("\n"); // last carriage return before exit
+  if (p) {
+    printtree(root[sw]);
+    printf("\n");
+  }
 
   return(0);
 }
