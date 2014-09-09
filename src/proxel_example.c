@@ -5,7 +5,7 @@
 /*                                                      */
 /* written/modified by                                  */
 /* Graham Horton, Sanja Lazarova-Molnar,                */
-/* Fabian Wickborn, Tim Benedict Jagla                  */
+/* Fabian Wickborn                                      */
 /********************************************************/
 
 #include <stdio.h>
@@ -22,10 +22,11 @@
 #define WP         0 /* (emission) working part */
 #define DP         1 /* (emission) defective part */
 #define DELTA      1
-#define ENDTIME    50
+#define ENDTIME    1000
 #define PI         3.1415926
 #define EMISSION   1 /* 1 = active */
 #define PATH       1 /* 1 = active */
+#define LIKELY     1
 
 typedef struct tproxel *pproxel;
 
@@ -37,6 +38,18 @@ typedef struct tproxel {
   double  val;                 /* proxel probability                */
   pproxel left, right;         /* pointers to child proxels in tree */
 } proxel;
+
+//  0 if a = b
+//  1 if a > b
+// -1 if a < b
+int proxel_cmp(const void *a, const void *b) {
+  proxel *pa = (proxel *)a;
+  proxel *pb = (proxel *)b;
+  double x = pa->val;
+  double y = pb->val;
+  if (x < y) return -1;
+  else if (x > y) return 1; return 0;
+}
 
 double *y[3];                  /* vectors for storing solution      */
 double  tmax;                  /* maximum simulation time           */
@@ -55,6 +68,7 @@ int     p;                     /* flag to path tracking             */
 double *em[3];                 /* emission matrix                   */
 double *emsum[2];              /* symbol emission sum per timestep  */
 int    *emsequence;            /* symbol emission sequence          */
+proxel *likely[LIKELY];        /* most likely paths                 */
 
 /********************************************************/
 /* distribution functions                               */
@@ -85,14 +99,14 @@ double dethrf(double x, double d) {
     y = 1.0 / dt;
   else
     y = 0.0;
-  
+
   return y;
 }
 
 /* returns uniform instantaneous rate function */
 double unihrf(double x, double a, double b) {
   double y;
-  
+
   if ((x >= a) && (x < b))
     y = 1.0 / (b - x);
   else
@@ -223,6 +237,31 @@ double lognormalhrf(double x, double a, double b){
 /* output functions                                     */
 /********************************************************/
 
+/* read protocol file */
+void readprotocol(const char* filename) {
+  FILE* file = fopen(filename, "r"); /* should check the result */
+  if (file == NULL) return;
+
+  char line[256];
+  char status[2];
+  float time;
+
+  int k = 1;
+  while (fgets(line, sizeof(line), file) != NULL)
+  {
+    if (k > kmax + 2) return;
+
+    sscanf(line, "%f %2c", &time, status); // read a float and 2 chars
+    if (strcmp(status, "OK") == 1) {
+      emsequence[k] = WP;
+    }
+    else {
+      emsequence[k] = DP;
+    }
+    ++k;
+  }
+}
+
 /* print a state in human readable form */
 char* printstate(int s) {
   char* c;
@@ -260,7 +299,7 @@ char* printemission(int e) {
 void printproxel(proxel *c) {
   int left = 0;
   int right = 0;
-  
+
   if (c->left != NULL) {
     left = c->left->id;
   }
@@ -268,23 +307,52 @@ void printproxel(proxel *c) {
   if (c->right != NULL) {
     right = c->right->id;
   }
-  
+
   int leaf = (c->left == NULL && c->right == NULL);
-  
+
   printf("ID: %6i - %s - Age: %3d - Prob.: %7.5le - Leaf: %i (%i,%i)\n", c->id, printstate(c->s), c->tau1k, c->val, leaf, left, right);
 
   if (p & leaf) {
     int k;
+    int quota = 0;
     printf("----------\nPath: { ", c->id);
     for (k = 0; k < kmax + 2; ++k) {
       if (c->tau2k[k] != 1) {
-        printf("%s ",printstate(c->tau2k[k]));
+        printf("%s ", printstate(c->tau2k[k]));
+        quota += c->tau2k[k];
       }
     }
-    printf("}\n----------\n");
+    int quotalpm = quota / 2;
+    int quotahpm = ENDTIME - quotalpm;
+    printf("} HPM %.2f | LPM %.2f\n----------\n", (double)quotahpm / ENDTIME, (double)quotalpm / ENDTIME);
   }
 }
 
+/* populates the list of the most likely paths */
+void checkproxel(proxel *c) {
+  int leaf = (c->left == NULL && c->right == NULL);
+
+  if (leaf) {
+    int k, maxdiffidx = 0;
+    double diff, maxdiff = 0.0;
+    for (k = 0; k < LIKELY; ++k) {
+      diff = fabs(c->val - likely[k]->val);
+      if ((c->val > likely[k]->val) & (diff > maxdiff)) {
+        maxdiff = diff; maxdiffidx = k;
+      }
+    }
+    likely[maxdiffidx] = c;
+  }
+}
+
+/* calls checkproxel on all proxels of a proxel tree */
+void checktree(proxel *p) {
+  if (p == NULL)
+    return;
+  checkproxel(p);
+  checktree(p->left);
+  checktree(p->right);
+}
 /* print all proxels of a proxel tree */
 void printtree(proxel *p) {
   if (p == NULL)
@@ -294,6 +362,17 @@ void printtree(proxel *p) {
   printtree(p->right);
 }
 
+/* prints the n most likely paths */
+void printlikely() {
+  int k;
+  printf("Printing %i 'Most Likely':\n", LIKELY);
+  for (k = 0; k < LIKELY; ++k) {
+    printproxel(likely[k]);
+  }
+  printf("\n");
+}
+
+/* prints an emission sequence */
 void printemissionsequence(int kmax) {
   int k;
   printf("Emission Sequence:\n{ ");
@@ -306,18 +385,21 @@ void printemissionsequence(int kmax) {
 /* print complete solution */
 void plotsolution(int kmax) {
   int k;
+  int kmin = 1; // 1 = default
+  int kstep = floor((double)ENDTIME / 10 + 0.5); // 1 = default
+
   char* one = (e) ? printemission(WP) : printstate(HPM);
   char* two = (e) ? printemission(DP) : printstate(LPM);
 
-  printf("%s/%s Probabilities:\n",one,two);
-  for (k = 1; k <= kmax; k++) {
+  printf("%s/%s Probabilities:\n", one, two);
+  for (k = kmin; k <= kmax; k += kstep) {
     printf("Time: %6.2f - %s-Prob.: %7.5le - %s-Prob.: %7.5le\n", k*dt, one, y[0][k], two, y[2][k]);
   }
   printf("\n");
 
   if (e) {
     printf("Sequence Probabilities:\n");
-    for (k = 1; k <= kmax; k++) {
+    for (k = kmin; k <= kmax; k += kstep) {
       printf("Time: %6.2f - %s-Prob.: %7.5le\n", k*dt, printemission(emsequence[k]), emsum[emsequence[k]][k]);
     }
     printf("\n");
@@ -332,7 +414,8 @@ int countleafs(proxel *p) {
 
   if (p->left == NULL && p->right == NULL) {
     return 1;
-  } else {
+  }
+  else {
     return countleafs(p->left) + countleafs(p->right);
   }
 }
@@ -528,6 +611,8 @@ double overheat(double age) {
 /* INSTANTANEOUS RATE FUNCTION 2 */
 double cooldown(double age) {
   return unihrf(age, 9, 11);
+  //return exphrf(age, 0.1);
+  //return normalhrf(age, 10, 2);
 }
 
 // t = time step
@@ -585,6 +670,12 @@ int main(int argc, char **argv) {
     for (k = 0; k < kmax + 2; ++k) { // sequence relevant from k = 1
       tau2k[k] = 1;
     }
+
+    for (k = 0; k < LIKELY; ++k) {
+      likely[k] = insertproxel(HPM, 0, tau2k, 0.0);
+      likely[k]->left = NULL;
+      likely[k]->right = NULL;
+    }
   }
 
   /* initialize the solution vector for each time step */
@@ -620,23 +711,25 @@ int main(int argc, char **argv) {
     for (k = 0; k < kmax + 2; ++k) { // sequence relevant from k = 1
       emsequence[k] = WP;
     }
+
+    readprotocol("protocol1.seq");
+
     printemissionsequence(kmax);
   }
 
   /* set initial proxel */
-  if(p) tau2k[0] = HPM;
+  if (p) tau2k[0] = HPM;
   addproxel(HPM, 0, tau2k, 1.0);
 
   /* first loop: iteration over all time steps*/
   /* current model time is k*dt */
   for (k = 1; k < kmax + 2; k++) {
-
     /* print progress information
     if (k % 100 == 0)  {
-      printf("Step %d\n", k);
-      printf("Size of tree %d\n", size(root[sw]));
+    printf("Step %d\n", k);
+    printf("Size of tree %d\n", size(root[sw]));
     } */
-    
+
     sw = 1 - sw;
 
     /* second loop: iterating over all proxels of a time step */
@@ -728,9 +821,12 @@ int main(int argc, char **argv) {
   printf("Leafs (Total) = %i\n", countleafs(root[sw]));
   printf("Accumulated Error = %7.5le\n\n", eerror);
 
+  //printtree(root[sw]);
+
   if (p) {
-    printtree(root[sw]);
+    checktree(root[sw]);
     printf("\n");
+    printlikely();
   }
 
   return(0);
