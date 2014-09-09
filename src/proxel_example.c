@@ -269,7 +269,7 @@ void printproxel(proxel *c) {
   
   int leaf = (c->left == NULL && c->right == NULL);
   
-  printf("ID: %6i - %s - Tau: (%3d,%3d) - Prob.: %7.5le - Leaf: %i (%i,%i)\n", c->id, printstate(c->s), c->tau1k, c->tau2k, c->val, leaf, left, right);
+  printf("ID: %6i - %s - Age: %3d - Prob.: %7.5le - Leaf: %i (%i,%i)\n", c->id, printstate(c->s), c->tau1k, c->val, leaf, left, right);
 }
 
 /* print all proxels of a proxel tree */
@@ -296,6 +296,7 @@ void plotsolution(int kmax) {
   char* one = (e) ? printemission(WP) : printstate(HPM);
   char* two = (e) ? printemission(DP) : printstate(LPM);
 
+  printf("%s/%s Probabilities:\n",one,two);
   for (k = 1; k <= kmax; k++) {
     printf("Time: %6.2f - %s-Prob.: %7.5le - %s-Prob.: %7.5le\n", k*dt, one, y[0][k], two, y[2][k]);
   }
@@ -320,28 +321,6 @@ int countleafs(proxel *p) {
     return 1;
   } else {
     return countleafs(p->left) + countleafs(p->right);
-  }
-}
-
-/* get the probability of a specific state path */
-double stateprobability(proxel *p, int states[], int step) {
-  if (p == NULL) {
-    return 0.0;
-  }
-
-  if (p->s == states[step]) {
-    printproxel(p);
-    int next = ++step;
-    double result = stateprobability(p->left, states, next) + stateprobability(p->right, states, next);
-    if (result > 0) {
-      return result;
-    }
-    else {
-      return p->val;
-    }
-  }
-  else {
-    return 0.0;
   }
 }
 
@@ -582,7 +561,6 @@ int main(int argc, char **argv) {
   }
 
   if (e) {
-    printf("\n");
     for (k = 0; k < 3; k++) { /* rows */
       em[k] = malloc(sizeof(double) * 2);
       for (j = 0; j < 2; j++) { /* cols */
@@ -727,13 +705,8 @@ int main(int argc, char **argv) {
   printf("Proxels (Total) = %d\n", totcnt);
   printf("Leafs (Total) = %i\n", countleafs(root[sw]));
   printf("Accumulated Error = %7.5le\n", eerror);
-  
-  /*
-  int a[3] = {HPM,LPM,LPM};
-  printf("Path Probability HPM->LPM->LPM: %7.5le\n", stateprobability(p, a, 0));
-  */
 
-  printf("\n");
+  printf("\n"); // last carriage return before exit
 
   return(0);
 }
